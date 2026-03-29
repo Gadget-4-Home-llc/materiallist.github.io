@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Material List</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh}
+    .card{background:#fff;border-radius:12px;padding:40px 32px;max-width:400px;width:90%;box-shadow:0 4px 24px rgba(0,0,0,0.08);text-align:center}
+    h2{font-size:22px;margin-bottom:10px;color:#111}
+    p{font-size:14px;color:#666;line-height:1.6;margin-bottom:20px}
+    .icon{font-size:52px;margin-bottom:16px}
+    input{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;margin-bottom:12px;outline:none;text-align:left}
+    input:focus{border-color:#3b82f6}
+    button{width:100%;padding:11px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}
+    button:disabled{opacity:0.6;cursor:default}
+    .msg{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;display:none;text-align:left}
+    .success{background:#dcfce7;color:#16a34a}
+    .error{background:#fee2e2;color:#dc2626}
+  </style>
+</head>
+<body>
+<div class="card" id="card">
+  <div id="loading" class="icon">⏳</div>
+</div>
+<script>
+  var SUPABASE_URL  = 'https://sprbfmhkycfamzjzjbaf.supabase.co';
+  var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwcmJmbWhreWNmYW16anpqYmFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NTUxMTUsImV4cCI6MjA4ODMzMTExNX0.6zLr8pGnulmEhwCMN7xAIwauyf6OFQ3iEK5KKqY8kI4';
+
+  var params = {};
+  window.location.hash.substring(1).split('&').forEach(function(p) {
+    var kv = p.split('='); params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || '');
+  });
+
+  var type        = params.type;
+  var accessToken = params.access_token;
+  var card        = document.getElementById('card');
+
+  if (type === 'recovery' && accessToken) {
+    showResetForm();
+  } else if (type === 'signup' || accessToken) {
+    showConfirmed();
+  } else {
+    showError('Invalid or expired link. Please try again from the extension.');
+  }
+
+  function showConfirmed() {
+    card.innerHTML =
+      '<div class="icon">&#9989;</div>' +
+      '<h2>Email Confirmed!</h2>' +
+      '<p>Your account is ready.<br>Close this tab and open the <strong>Material List</strong> extension to sign in.</p>';
+  }
+
+  function showError(msg) {
+    card.innerHTML =
+      '<div class="icon">&#10060;</div>' +
+      '<h2>Link Expired</h2>' +
+      '<p>' + msg + '</p>';
+  }
+
+  function showResetForm() {
+    card.innerHTML =
+      '<h2>Reset your password</h2>' +
+      '<p>Enter a new password for your Material List account.</p>' +
+      '<div id="msg" class="msg"></div>' +
+      '<form id="form">' +
+        '<input type="password" id="pwd" placeholder="New password (min. 6 characters)" minlength="6" required>' +
+        '<input type="password" id="pwd2" placeholder="Confirm new password" minlength="6" required>' +
+        '<button type="submit" id="btn">Update Password</button>' +
+      '</form>';
+
+    document.getElementById('form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var pwd  = document.getElementById('pwd').value;
+      var pwd2 = document.getElementById('pwd2').value;
+      if (pwd !== pwd2)   { showMsg('error', 'Passwords do not match.'); return; }
+      if (pwd.length < 6) { showMsg('error', 'Password must be at least 6 characters.'); return; }
+      var btn = document.getElementById('btn');
+      btn.disabled = true; btn.textContent = '...';
+      try {
+        var res = await fetch(SUPABASE_URL + '/auth/v1/user', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON,
+            'Authorization': 'Bearer ' + accessToken
+          },
+          body: JSON.stringify({ password: pwd })
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.msg || data.error_description || 'Failed to update password');
+        card.innerHTML =
+          '<div class="icon">&#9989;</div>' +
+          '<h2>Password Updated!</h2>' +
+          '<p>Close this tab and sign in to the <strong>Material List</strong> extension with your new password.</p>';
+      } catch(err) {
+        showMsg('error', err.message);
+        btn.disabled = false; btn.textContent = 'Update Password';
+      }
+    });
+  }
+
+  function showMsg(cls, text) {
+    var el = document.getElementById('msg');
+    el.textContent = text; el.className = 'msg ' + cls; el.style.display = 'block';
+  }
+</script>
+</body>
+</html>
